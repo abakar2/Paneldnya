@@ -1,0 +1,451 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Панель дня</title>
+<meta name="theme-color" content="#14171A" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-title" content="Панель дня" />
+<link rel="manifest" id="manifest-link" />
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap');
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; padding: 0; background: #14171A; color: #EDEFF1; font-family: 'Inter', sans-serif; }
+  input, select, button { font-family: 'Inter', sans-serif; }
+  input:focus, select:focus, button:focus-visible { outline: 2px solid #E8A33D !important; outline-offset: 1px; }
+  input::placeholder { color: #57616B; }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+  button { cursor: pointer; }
+
+  #app { min-height: 100vh; display: flex; flex-direction: column; }
+  header { padding: 20px 16px 14px; border-bottom: 1px solid #1F2429; }
+  .eyebrow { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; font-size: 12px; color: #8B95A1; text-transform: capitalize; }
+  h1 { font-family: 'Space Grotesk', sans-serif; font-size: 22px; margin: 0; letter-spacing: -0.3px; }
+  main { flex: 1; padding: 16px; padding-bottom: 90px; max-width: 480px; width: 100%; margin: 0 auto; }
+
+  .row-between { display: flex; justify-content: space-between; align-items: baseline; }
+  .section-title { font-family: 'Space Grotesk', sans-serif; font-size: 18px; margin: 0; color: #EDEFF1; }
+  .mono { font-family: 'JetBrains Mono', monospace; }
+  .muted { color: #8B95A1; }
+
+  .day-bar-track { display: flex; height: 10px; border-radius: 5px; overflow: hidden; background: #20252A; border: 1px solid #262C31; margin-top: 10px; }
+  .day-bar-now { position: relative; height: 0; }
+  .day-bar-now span { position: relative; top: -16px; display: block; width: 2px; height: 16px; background: #EDEFF1; box-shadow: 0 0 6px rgba(237,239,241,0.8); }
+
+  .task { display: flex; align-items: center; gap: 10px; padding: 10px 12px; background: #1B1F23; border: 1px solid #262C31; border-radius: 8px; margin-top: 6px; }
+  .task-time { font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #8B95A1; min-width: 42px; }
+  .task-label { flex: 1; font-size: 14px; color: #EDEFF1; }
+  .icon-btn { background: none; border: none; display: flex; padding: 2px; opacity: 0.6; }
+  .icon-btn.check { opacity: 1; }
+
+  .add-row { display: flex; gap: 6px; margin-top: 12px; padding: 10px; background: #1B1F23; border: 1px dashed #2A3036; border-radius: 8px; flex-wrap: wrap; }
+  .field { background: #14171A; border: 1px solid #2A3036; border-radius: 6px; padding: 8px 10px; font-size: 13px; color: #EDEFF1; outline: none; }
+  .btn-add { background: #E8A33D; border: none; border-radius: 6px; padding: 8px 10px; display: flex; align-items: center; justify-content: center; }
+  .btn-add-labeled { display: flex; align-items: center; gap: 4px; padding: 6px 12px; }
+  .btn-add-labeled span { font-size: 12px; color: #14171A; font-weight: 600; }
+
+  .summary-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; background: #1B1F23; border: 1px solid #262C31; border-radius: 10px; padding: 14px; margin-bottom: 18px; }
+  .stat-label { font-size: 11px; color: #8B95A1; margin-bottom: 2px; }
+  .stat-value { font-family: 'JetBrains Mono', monospace; font-size: 15px; font-weight: 600; }
+  .stat-value.big { font-size: 20px; }
+
+  .fin-section { margin-bottom: 18px; }
+  .fin-title { display: flex; align-items: center; gap: 6px; margin-bottom: 8px; }
+  .fin-title h3 { font-family: 'Space Grotesk', sans-serif; font-size: 14px; margin: 0; color: #EDEFF1; }
+  .fin-row { display: flex; gap: 6px; align-items: center; margin-top: 6px; }
+  .fin-row input { flex: 1; min-width: 0; }
+
+  .cal-nav { display: flex; align-items: center; justify-content: space-between; }
+  .cal-nav button { background: none; border: none; display: flex; }
+  .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; margin-top: 14px; }
+  .cal-dow { text-align: center; font-size: 10px; color: #57616B; padding-bottom: 4px; }
+  .cal-cell { aspect-ratio: 1; border-radius: 8px; border: 1px solid #262C31; background: #1B1F23; color: #EDEFF1; font-size: 12px; font-family: 'JetBrains Mono', monospace; display: flex; align-items: center; justify-content: center; position: relative; }
+  .cal-cell.today { border-color: #E8A33D; }
+  .cal-cell.selected { background: #20252A; }
+  .cal-dot { position: absolute; bottom: 4px; width: 4px; height: 4px; border-radius: 50%; background: #3ECF8E; }
+  .event-item { display: flex; align-items: center; gap: 10px; padding: 8px 10px; background: #1B1F23; border: 1px solid #262C31; border-radius: 8px; margin-top: 6px; }
+  .event-date { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #8B95A1; min-width: 72px; }
+  .event-title { flex: 1; font-size: 13px; color: #EDEFF1; }
+
+  nav.tabbar { position: fixed; bottom: 0; left: 0; right: 0; background: #1B1F23; border-top: 1px solid #262C31; display: flex; justify-content: center; padding-bottom: env(safe-area-inset-bottom, 0px); }
+  nav.tabbar .inner { display: flex; max-width: 480px; width: 100%; }
+  nav.tabbar button { flex: 1; background: none; border: none; padding: 12px 4px 10px; display: flex; flex-direction: column; align-items: center; gap: 3px; }
+  nav.tabbar button span { font-size: 10px; }
+</style>
+</head>
+<body>
+<div id="app"></div>
+
+<script>
+// ---------- Icons (minimal inline SVG) ----------
+const ICONS = {
+  sun: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#E8A33D" stroke-width="2"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>',
+  moon: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#5B8FE0" stroke-width="2"><path d="M21 12.8A9 9 0 1111.2 3a7 7 0 009.8 9.8z"/></svg>',
+  check: (c)=>`<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="${c}" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M8 12l3 3 5-6"/></svg>`,
+  circle: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#57616B" stroke-width="2"><circle cx="12" cy="12" r="9"/></svg>',
+  trash: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#8B95A1" stroke-width="2"><path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2m3 0l-1 14a2 2 0 01-2 2H7a2 2 0 01-2-2L4 6"/></svg>',
+  plus: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#14171A" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>',
+  x: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#8B95A1" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>',
+  chevL: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#8B95A1" stroke-width="2"><path d="M15 18l-6-6 6-6"/></svg>',
+  chevR: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#8B95A1" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>',
+  cal: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#5B8FE0" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>',
+  tabRoutine: (a)=>`<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="${a?'#E8A33D':'#57616B'}" stroke-width="2"><path d="M9 11l3 3L22 4M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>`,
+  tabFinance: (a)=>`<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="${a?'#E8A33D':'#57616B'}" stroke-width="2"><rect x="2" y="6" width="20" height="14" rx="2"/><path d="M2 10h20M6 15h4"/></svg>`,
+  tabCalendar: (a)=>`<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="${a?'#E8A33D':'#57616B'}" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>`,
+};
+
+const CATEGORY_STYLE = {
+  prayer: { color: "#3ECF8E", label: "Намаз" },
+  deep: { color: "#E8A33D", label: "Глубокая работа" },
+  ops: { color: "#5B8FE0", label: "Операционка" },
+  admin: { color: "#9B8CD9", label: "Админ" },
+  personal: { color: "#E27C9E", label: "Личное" },
+};
+
+const DEFAULT_TASKS = [
+  { id: "t1", time: "05:00", label: "Подъём, Фаджр", category: "prayer" },
+  { id: "t2", time: "06:00", label: "Deep work — главный проект", category: "deep" },
+  { id: "t3", time: "07:30", label: "WB/Ozon: заказы и отгрузки", category: "ops" },
+  { id: "t4", time: "09:45", label: "Deep work — второй проект", category: "deep" },
+  { id: "t5", time: "11:30", label: "Зухр", category: "prayer" },
+  { id: "t6", time: "13:00", label: "Административные задачи", category: "admin" },
+  { id: "t7", time: "15:00", label: "Аср", category: "prayer" },
+  { id: "t8", time: "15:30", label: "Проектная работа", category: "deep" },
+  { id: "t9", time: "17:00", label: "Личное время", category: "personal" },
+  { id: "t10", time: "18:00", label: "Магриб", category: "prayer" },
+  { id: "t11", time: "19:30", label: "Разбор дня + план на завтра", category: "admin" },
+  { id: "t12", time: "21:30", label: "Иша, подготовка ко сну", category: "prayer" },
+];
+
+const todayKey = (d = new Date()) => d.toISOString().slice(0, 10);
+const fmtRub = (n) => (Number(n) || 0).toLocaleString("ru-RU", { maximumFractionDigits: 0 }) + " ₽";
+const timeToMinutes = (t) => { const [h, m] = t.split(":").map(Number); return h * 60 + m; };
+
+async function loadKey(key, fallback) {
+  try { const res = await window.storage.get(key); return res ? JSON.parse(res.value) : fallback; }
+  catch { return fallback; }
+}
+async function saveKey(key, value) {
+  try { await window.storage.set(key, JSON.stringify(value)); }
+  catch (e) { console.error("storage error", e); }
+}
+
+// ---------- State ----------
+let state = {
+  tab: "routine",
+  loaded: false,
+  tasks: DEFAULT_TASKS,
+  doneIds: [],
+  finance: { credits: [], investments: [], accounts: [] },
+  events: [],
+  calCursor: new Date(),
+  selectedDate: todayKey(),
+};
+
+async function init() {
+  const [tasks, doneIds, finance, events] = await Promise.all([
+    loadKey("routine-tasks", DEFAULT_TASKS),
+    loadKey(`routine-done:${todayKey()}`, []),
+    loadKey("finance-data", { credits: [], investments: [], accounts: [] }),
+    loadKey("calendar-events", []),
+  ]);
+  state = { ...state, tasks, doneIds, finance, events, loaded: true };
+  render();
+}
+
+function persistTasks() { saveKey("routine-tasks", state.tasks); }
+function persistDone() { saveKey(`routine-done:${todayKey()}`, state.doneIds); }
+function persistFinance() { saveKey("finance-data", state.finance); }
+function persistEvents() { saveKey("calendar-events", state.events); }
+
+// ---------- Render: Day progress bar ----------
+function dayProgressBarHTML(tasks) {
+  const now = new Date();
+  const nowMin = now.getHours() * 60 + now.getMinutes();
+  const sorted = [...tasks].sort((a, b) => timeToMinutes(a.time) - timeToMinutes(b.time));
+  const dayStart = timeToMinutes(sorted[0]?.time || "05:00");
+  const dayEnd = 23 * 60;
+  const span = dayEnd - dayStart;
+  const segs = sorted.map((t, i) => {
+    const start = timeToMinutes(t.time);
+    const end = i < sorted.length - 1 ? timeToMinutes(sorted[i + 1].time) : dayEnd;
+    const width = Math.max(0, ((end - start) / span) * 100);
+    return `<div title="${t.time} ${t.label}" style="width:${width}%;background:${CATEGORY_STYLE[t.category]?.color || '#57616B'};opacity:.55;"></div>`;
+  }).join("");
+  const progressPct = Math.min(100, Math.max(0, ((nowMin - dayStart) / span) * 100));
+  return `<div class="day-bar-track">${segs}</div>
+    <div class="day-bar-now"><span style="margin-left:${progressPct}%;"></span></div>`;
+}
+
+// ---------- Render: Routine tab ----------
+function routineTabHTML() {
+  const sorted = [...state.tasks].sort((a, b) => timeToMinutes(a.time) - timeToMinutes(b.time));
+  const doneCount = sorted.filter(t => state.doneIds.includes(t.id)).length;
+  const rows = sorted.map(t => {
+    const style = CATEGORY_STYLE[t.category] || CATEGORY_STYLE.admin;
+    const isDone = state.doneIds.includes(t.id);
+    return `<div class="task" style="border-left:3px solid ${style.color};opacity:${isDone ? 0.5 : 1};">
+      <button class="icon-btn check" data-action="toggle-task" data-id="${t.id}">${isDone ? ICONS.check(style.color) : ICONS.circle}</button>
+      <span class="task-time">${t.time}</span>
+      <span class="task-label" style="text-decoration:${isDone ? 'line-through' : 'none'};">${escapeHtml(t.label)}</span>
+      <button class="icon-btn" data-action="remove-task" data-id="${t.id}">${ICONS.trash}</button>
+    </div>`;
+  }).join("");
+
+  const catOptions = Object.entries(CATEGORY_STYLE).map(([k, v]) => `<option value="${k}">${v.label}</option>`).join("");
+
+  return `
+    <div class="row-between">
+      <h2 class="section-title">Сегодня</h2>
+      <span class="mono muted">${doneCount}/${sorted.length}</span>
+    </div>
+    ${dayProgressBarHTML(sorted)}
+    <div style="margin-top:4px;">${rows}</div>
+    <div class="add-row">
+      <input class="field" type="time" id="new-task-time" value="12:00" style="width:90px;" />
+      <select class="field" id="new-task-cat" style="width:130px;">${catOptions}</select>
+      <input class="field" type="text" id="new-task-label" placeholder="Новая задача..." style="flex:1;min-width:120px;" />
+      <button class="btn-add" data-action="add-task">${ICONS.plus}</button>
+    </div>
+  `;
+}
+
+// ---------- Render: Finance tab ----------
+function financeTabHTML() {
+  const { credits, investments, accounts } = state.finance;
+  const totalDebt = credits.reduce((s, c) => s + Number(c.balance || 0), 0);
+  const totalMonthly = credits.reduce((s, c) => s + Number(c.payment || 0), 0);
+  const portfolioValue = investments.reduce((s, i) => s + Number(i.qty || 0) * Number(i.price || 0), 0);
+  const portfolioCost = investments.reduce((s, i) => s + Number(i.qty || 0) * Number(i.avgPrice || 0), 0);
+  const pnl = portfolioValue - portfolioCost;
+  const totalAccounts = accounts.reduce((s, a) => s + Number(a.balance || 0), 0);
+  const netWorth = totalAccounts + portfolioValue - totalDebt;
+
+  const finRow = (section, row, fields) => `
+    <div class="fin-row" data-row-id="${row.id}" data-section="${section}">
+      ${fields.map(f => `<input class="field" type="${f.type}" placeholder="${f.placeholder}" value="${escapeHtml(String(row[f.key] ?? ''))}" data-field="${f.key}" data-action="update-fin" data-section="${section}" data-id="${row.id}" style="flex:${f.flex};" />`).join("")}
+      <button class="icon-btn" data-action="remove-fin" data-section="${section}" data-id="${row.id}">${ICONS.trash}</button>
+    </div>`;
+
+  return `
+    <div class="summary-grid">
+      <div><div class="stat-label">Чистая позиция</div><div class="stat-value big mono" style="color:${netWorth >= 0 ? '#3ECF8E' : '#E2574C'}">${fmtRub(netWorth)}</div></div>
+      <div><div class="stat-label">Долг всего</div><div class="stat-value mono" style="color:#E2574C">${fmtRub(totalDebt)}</div></div>
+      <div><div class="stat-label">Платежи/мес</div><div class="stat-value mono" style="color:#E8A33D">${fmtRub(totalMonthly)}</div></div>
+      <div><div class="stat-label">Портфель</div><div class="stat-value mono" style="color:#5B8FE0">${fmtRub(portfolioValue)}</div></div>
+    </div>
+
+    <div class="fin-section">
+      <div class="fin-title">💳<h3>Кредиты</h3></div>
+      ${credits.map(r => finRow("credits", r, [
+        { key: "name", placeholder: "Название", type: "text", flex: 2 },
+        { key: "balance", placeholder: "Остаток ₽", type: "number", flex: 1 },
+        { key: "payment", placeholder: "Платёж/мес ₽", type: "number", flex: 1 },
+      ])).join("")}
+      <button class="btn-add btn-add-labeled" data-action="add-credit">${ICONS.plus}<span>Добавить</span></button>
+    </div>
+
+    <div class="fin-section">
+      <div class="fin-title">📈<h3>Акции / инвестиции</h3></div>
+      ${investments.map(r => finRow("investments", r, [
+        { key: "ticker", placeholder: "Тикер", type: "text", flex: 1 },
+        { key: "qty", placeholder: "Кол-во", type: "number", flex: 1 },
+        { key: "avgPrice", placeholder: "Ср. цена", type: "number", flex: 1 },
+        { key: "price", placeholder: "Тек. цена", type: "number", flex: 1 },
+      ])).join("")}
+      ${investments.length > 0 ? `<div class="mono" style="font-size:12px;margin-top:4px;color:${pnl >= 0 ? '#3ECF8E' : '#E2574C'}">${pnl >= 0 ? '+' : ''}${fmtRub(pnl)}</div>` : ""}
+      <button class="btn-add btn-add-labeled" data-action="add-investment">${ICONS.plus}<span>Добавить</span></button>
+    </div>
+
+    <div class="fin-section">
+      <div class="fin-title">👛<h3>Остатки на счетах</h3></div>
+      ${accounts.map(r => finRow("accounts", r, [
+        { key: "name", placeholder: "Счёт / карта", type: "text", flex: 2 },
+        { key: "balance", placeholder: "Остаток ₽", type: "number", flex: 1 },
+      ])).join("")}
+      <button class="btn-add btn-add-labeled" data-action="add-account">${ICONS.plus}<span>Добавить</span></button>
+    </div>
+  `;
+}
+
+// ---------- Render: Calendar tab ----------
+function calendarTabHTML() {
+  const cursor = state.calCursor;
+  const year = cursor.getFullYear(), month = cursor.getMonth();
+  const firstDay = new Date(year, month, 1);
+  const startOffset = (firstDay.getDay() + 6) % 7;
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const monthLabel = cursor.toLocaleDateString("ru-RU", { month: "long", year: "numeric" });
+
+  const eventsByDate = {};
+  state.events.forEach(e => { (eventsByDate[e.date] ||= []).push(e); });
+
+  let cells = "";
+  for (let i = 0; i < startOffset; i++) cells += `<div></div>`;
+  for (let d = 1; d <= daysInMonth; d++) {
+    const dateStr = `${year}-${String(month + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+    const isToday = dateStr === todayKey();
+    const isSelected = dateStr === state.selectedDate;
+    const hasEvents = eventsByDate[dateStr]?.length > 0;
+    cells += `<button class="cal-cell${isToday ? ' today' : ''}${isSelected ? ' selected' : ''}" data-action="select-date" data-date="${dateStr}">${d}${hasEvents ? '<span class="cal-dot"></span>' : ''}</button>`;
+  }
+
+  const upcoming = [...state.events].filter(e => e.date >= todayKey()).sort((a, b) => a.date.localeCompare(b.date)).slice(0, 8);
+  const upcomingHTML = upcoming.length === 0
+    ? `<div style="font-size:13px;color:#57616B;">Пока пусто — добавьте первое событие.</div>`
+    : upcoming.map(e => `<div class="event-item">
+        ${ICONS.cal}
+        <span class="event-date mono">${e.date}</span>
+        <span class="event-title">${escapeHtml(e.title)}</span>
+        <button class="icon-btn" data-action="remove-event" data-id="${e.id}">${ICONS.x}</button>
+      </div>`).join("");
+
+  return `
+    <div class="cal-nav">
+      <button data-action="cal-prev">${ICONS.chevL}</button>
+      <h2 class="section-title" style="text-transform:capitalize;font-size:16px;">${monthLabel}</h2>
+      <button data-action="cal-next">${ICONS.chevR}</button>
+    </div>
+    <div class="cal-grid">
+      ${["Пн","Вт","Ср","Чт","Пт","Сб","Вс"].map(d => `<div class="cal-dow">${d}</div>`).join("")}
+      ${cells}
+    </div>
+    <div class="add-row" style="margin-top:14px;">
+      <input class="field" type="text" id="new-event-title" placeholder="Событие на ${state.selectedDate}..." style="flex:1;" />
+      <button class="btn-add" data-action="add-event">${ICONS.plus}</button>
+    </div>
+    <h3 style="font-family:'Space Grotesk',sans-serif;font-size:13px;color:#8B95A1;margin:14px 0 8px;">Ближайшие события</h3>
+    ${upcomingHTML}
+  `;
+}
+
+function escapeHtml(str) {
+  const div = document.createElement("div");
+  div.textContent = str;
+  return div.innerHTML;
+}
+
+// ---------- Root render ----------
+function render() {
+  const app = document.getElementById("app");
+  if (!state.loaded) {
+    app.innerHTML = `<div style="min-height:100vh;display:flex;align-items:center;justify-content:center;"><span class="mono muted" style="font-size:13px;">загрузка...</span></div>`;
+    return;
+  }
+  const now = new Date();
+  const dateLabel = now.toLocaleDateString("ru-RU", { weekday: "long", day: "numeric", month: "long" });
+  const isDay = now.getHours() < 18;
+
+  let tabContent = "";
+  if (state.tab === "routine") tabContent = routineTabHTML();
+  else if (state.tab === "finance") tabContent = financeTabHTML();
+  else tabContent = calendarTabHTML();
+
+  app.innerHTML = `
+    <header>
+      <div class="eyebrow">${isDay ? ICONS.sun : ICONS.moon}<span>${dateLabel}</span></div>
+      <h1>Панель дня</h1>
+    </header>
+    <main>${tabContent}</main>
+    <nav class="tabbar"><div class="inner">
+      <button data-action="set-tab" data-tab="routine">${ICONS.tabRoutine(state.tab==='routine')}<span style="color:${state.tab==='routine'?'#E8A33D':'#57616B'}">Распорядок</span></button>
+      <button data-action="set-tab" data-tab="finance">${ICONS.tabFinance(state.tab==='finance')}<span style="color:${state.tab==='finance'?'#E8A33D':'#57616B'}">Финансы</span></button>
+      <button data-action="set-tab" data-tab="calendar">${ICONS.tabCalendar(state.tab==='calendar')}<span style="color:${state.tab==='calendar'?'#E8A33D':'#57616B'}">Календарь</span></button>
+    </div></nav>
+  `;
+}
+
+// ---------- Event delegation ----------
+document.addEventListener("click", (e) => {
+  const el = e.target.closest("[data-action]");
+  if (!el) return;
+  const action = el.dataset.action;
+
+  if (action === "set-tab") { state.tab = el.dataset.tab; render(); }
+
+  else if (action === "toggle-task") {
+    const id = el.dataset.id;
+    state.doneIds = state.doneIds.includes(id) ? state.doneIds.filter(x => x !== id) : [...state.doneIds, id];
+    persistDone(); render();
+  }
+  else if (action === "remove-task") {
+    const id = el.dataset.id;
+    state.tasks = state.tasks.filter(t => t.id !== id);
+    state.doneIds = state.doneIds.filter(x => x !== id);
+    persistTasks(); persistDone(); render();
+  }
+  else if (action === "add-task") {
+    const label = document.getElementById("new-task-label").value.trim();
+    const time = document.getElementById("new-task-time").value;
+    const category = document.getElementById("new-task-cat").value;
+    if (!label) return;
+    state.tasks = [...state.tasks, { id: "c" + Date.now(), time, label, category }];
+    persistTasks(); render();
+  }
+
+  else if (action === "add-credit") { state.finance.credits.push({ id: "r"+Date.now(), name:"", balance:"", payment:"" }); persistFinance(); render(); }
+  else if (action === "add-investment") { state.finance.investments.push({ id: "r"+Date.now(), ticker:"", qty:"", avgPrice:"", price:"" }); persistFinance(); render(); }
+  else if (action === "add-account") { state.finance.accounts.push({ id: "r"+Date.now(), name:"", balance:"" }); persistFinance(); render(); }
+  else if (action === "remove-fin") {
+    const { section, id } = el.dataset;
+    state.finance[section] = state.finance[section].filter(r => r.id !== id);
+    persistFinance(); render();
+  }
+
+  else if (action === "cal-prev") { state.calCursor = new Date(state.calCursor.getFullYear(), state.calCursor.getMonth()-1, 1); render(); }
+  else if (action === "cal-next") { state.calCursor = new Date(state.calCursor.getFullYear(), state.calCursor.getMonth()+1, 1); render(); }
+  else if (action === "select-date") { state.selectedDate = el.dataset.date; render(); }
+  else if (action === "add-event") {
+    const input = document.getElementById("new-event-title");
+    const title = input.value.trim();
+    if (!title) return;
+    state.events.push({ id: "e"+Date.now(), date: state.selectedDate, title });
+    persistEvents(); render();
+  }
+  else if (action === "remove-event") {
+    state.events = state.events.filter(ev => ev.id !== el.dataset.id);
+    persistEvents(); render();
+  }
+});
+
+document.addEventListener("change", (e) => {
+  const el = e.target;
+  if (el.dataset.action === "update-fin") {
+    const { section, id, field } = el.dataset;
+    state.finance[section] = state.finance[section].map(r => r.id === id ? { ...r, [field]: el.value } : r);
+    persistFinance();
+  }
+});
+
+// ---------- Dynamic manifest (installable PWA) ----------
+(function setupManifest() {
+  const iconSvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+    <rect width="512" height="512" rx="96" fill="#14171A"/>
+    <rect x="96" y="376" width="320" height="24" rx="12" fill="#262C31"/>
+    <rect x="96" y="376" width="220" height="24" rx="12" fill="#E8A33D"/>
+    <circle cx="256" cy="196" r="88" fill="none" stroke="#3ECF8E" stroke-width="16"/>
+    <path d="M256 140 L256 196 L296 226" stroke="#3ECF8E" stroke-width="16" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+  </svg>`;
+  const iconDataUri = "data:image/svg+xml;base64," + btoa(iconSvg);
+  const manifest = {
+    name: "Панель дня",
+    short_name: "Панель дня",
+    start_url: ".",
+    display: "standalone",
+    background_color: "#14171A",
+    theme_color: "#14171A",
+    icons: [
+      { src: iconDataUri, sizes: "any", type: "image/svg+xml", purpose: "any maskable" }
+    ]
+  };
+  const blob = new Blob([JSON.stringify(manifest)], { type: "application/json" });
+  document.getElementById("manifest-link").setAttribute("href", URL.createObjectURL(blob));
+})();
+
+init();
+</script>
+</body>
+</html>
