@@ -118,6 +118,19 @@
   .btn-cancel { background: #20252A; color: #8B95A1; border: 1px solid #262C31 !important; }
   .task-title-clickable { cursor: pointer; }
 
+  /* Notebook */
+  .note-nav { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; gap: 8px; }
+  .note-nav .icon-nav { background: none; border: none; display: flex; padding: 6px; flex-shrink: 0; }
+  .note-date-label { font-family: 'Space Grotesk', sans-serif; font-size: 15px; text-align: center; }
+  .note-today-btn { padding: 7px 13px; border-radius: 14px; border: 1px solid #262C31; background: #1B1F23; color: #8B95A1; font-size: 12px; flex-shrink: 0; }
+  .note-textarea { width: 100%; min-height: 220px; background: #1B1F23; border: 1px solid #262C31; border-radius: 10px; padding: 14px; font-size: 14px; line-height: 1.55; color: #EDEFF1; resize: vertical; }
+  .note-footer { display: flex; justify-content: space-between; align-items: center; margin-top: 8px; font-size: 11px; color: #57616B; }
+  .note-search { width: 100%; margin-bottom: 12px; }
+  .note-list-item { padding: 10px 12px; background: #1B1F23; border: 1px solid #262C31; border-radius: 8px; margin-top: 6px; }
+  .note-list-date { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #E8A33D; margin-bottom: 3px; text-transform: capitalize; }
+  .note-list-snippet { font-size: 13px; color: #EDEFF1; line-height: 1.4; overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+  .note-list-time { font-size: 10px; color: #57616B; margin-top: 4px; }
+
   nav.tabbar { position: fixed; bottom: 0; left: 0; right: 0; background: #1B1F23; border-top: 1px solid #262C31; display: flex; justify-content: center; padding-bottom: env(safe-area-inset-bottom, 0px); }
   nav.tabbar .inner { display: flex; max-width: 480px; width: 100%; }
   nav.tabbar button { flex: 1; background: none; border: none; padding: 12px 4px 10px; display: flex; flex-direction: column; align-items: center; gap: 3px; }
@@ -140,6 +153,7 @@ const ICONS = {
   repeat: '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#57616B" stroke-width="2"><path d="M17 1l4 4-4 4M3 11V9a4 4 0 014-4h14M7 23l-4-4 4-4M21 13v2a4 4 0 01-4 4H3"/></svg>',
   tabTasks: (a)=>`<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="${a?'#E8A33D':'#57616B'}" stroke-width="2"><path d="M9 11l3 3L22 4M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>`,
   tabFinance: (a)=>`<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="${a?'#E8A33D':'#57616B'}" stroke-width="2"><rect x="2" y="6" width="20" height="14" rx="2"/><path d="M2 10h20M6 15h4"/></svg>`,
+  tabNotes: (a)=>`<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="${a?'#E8A33D':'#57616B'}" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 016.5 17H20M4 4.5A2.5 2.5 0 016.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15z"/></svg>`,
 };
 
 const LIST_STYLE = {
@@ -207,14 +221,20 @@ let state = {
   editingTaskId: null,
   financeView: "ops", // ops | ledger
   txType: "expense",
+  notesView: "write", // write | archive
+  noteDate: todayKey(),
+  noteSearch: "",
   tasks: loadKey("pd-tasks", DEFAULT_TASKS),
   transactions: loadKey("pd-transactions", []),
   finance: loadKey("pd-finance", { credits: [], investments: [], accounts: [] }),
+  notes: loadKey("pd-notes", {}),
 };
+let noteSaveTimer = null;
 
 function persistTasks() { saveKey("pd-tasks", state.tasks); }
 function persistTx() { saveKey("pd-transactions", state.transactions); }
 function persistFinance() { saveKey("pd-finance", state.finance); }
+function persistNotes() { saveKey("pd-notes", state.notes); }
 
 function isDoneOn(task, dateStr) {
   return task.repeat === "daily" ? task.doneDates.includes(dateStr) : !!task.done;
@@ -563,6 +583,76 @@ function financeTabHTML() {
   return viewToggle + (state.financeView === "ops" ? financeOpsHTML() : financeLedgerHTML());
 }
 
+// ---------- Notebook (daily journal) ----------
+function fmtDateFull(dateStr) {
+  const d = new Date(dateStr + "T00:00:00");
+  return d.toLocaleDateString("ru-RU", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
+}
+function noteWordCount(text) {
+  const trimmed = (text || "").trim();
+  return trimmed ? trimmed.split(/\s+/).length : 0;
+}
+
+function notesTabHTML() {
+  const viewToggle = `
+    <div class="segmented">
+      <button data-action="set-notes-view" data-view="write" class="${state.notesView === 'write' ? 'active' : ''}">Запись</button>
+      <button data-action="set-notes-view" data-view="archive" class="${state.notesView === 'archive' ? 'active' : ''}">Архив</button>
+    </div>`;
+  return viewToggle + (state.notesView === "write" ? noteWriteHTML() : noteArchiveHTML());
+}
+
+function noteWriteHTML() {
+  const dateStr = state.noteDate;
+  const note = state.notes[dateStr] || { text: "", updatedAt: null };
+  const isToday = dateStr === todayKey();
+  const savedLabel = note.updatedAt
+    ? `Сохранено в ${new Date(note.updatedAt).toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" })}`
+    : "Ещё не сохранено";
+
+  return `
+    <div class="note-nav">
+      <button class="icon-nav" data-action="note-prev-day">${ICONS.chevL}</button>
+      <div class="note-date-label" style="flex:1;text-transform:capitalize;">${fmtDateFull(dateStr)}</div>
+      <button class="icon-nav" data-action="note-next-day">${ICONS.chevR}</button>
+    </div>
+    <div style="display:flex;gap:6px;margin-bottom:10px;">
+      <input class="field" type="date" id="note-date-picker" value="${dateStr}" style="flex:1;" />
+      ${!isToday ? `<button class="note-today-btn" data-action="note-today">Сегодня</button>` : ""}
+    </div>
+    <textarea class="note-textarea" id="note-textarea" placeholder="Что нужно запомнить сегодня...">${escapeHtml(note.text)}</textarea>
+    <div class="note-footer">
+      <span id="note-footer-info">${noteWordCount(note.text)} слов · ${savedLabel}</span>
+      <button class="icon-btn" data-action="clear-note" data-date="${dateStr}">${ICONS.trash}</button>
+    </div>
+  `;
+}
+
+function noteArchiveResultsHTML() {
+  const query = state.noteSearch.trim().toLowerCase();
+  const entries = Object.entries(state.notes)
+    .filter(([, n]) => n.text && n.text.trim())
+    .filter(([date, n]) => !query || n.text.toLowerCase().includes(query) || date.includes(query))
+    .sort((a, b) => b[0].localeCompare(a[0]));
+
+  if (entries.length === 0) {
+    return `<div class="empty-state">${query ? "Ничего не найдено." : "Записей пока нет — начните с вкладки «Запись»."}</div>`;
+  }
+  return entries.map(([date, n]) => `
+    <div class="note-list-item task-title-clickable" data-action="open-note-date" data-date="${date}">
+      <div class="note-list-date">${fmtDateShort(date)} · ${new Date(date + "T00:00:00").toLocaleDateString("ru-RU", { weekday: "short" })}</div>
+      <div class="note-list-snippet">${escapeHtml(n.text.slice(0, 160))}</div>
+      ${n.updatedAt ? `<div class="note-list-time">${new Date(n.updatedAt).toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" })}</div>` : ""}
+    </div>`).join("");
+}
+
+function noteArchiveHTML() {
+  return `
+    <input class="field note-search" type="text" id="note-search-input" placeholder="Поиск по записям..." value="${escapeHtml(state.noteSearch)}" />
+    <div id="note-archive-results">${noteArchiveResultsHTML()}</div>
+  `;
+}
+
 function escapeHtml(str) {
   const div = document.createElement("div");
   div.textContent = str == null ? "" : str;
@@ -575,7 +665,7 @@ function render() {
   const now = new Date();
   const dateLabel = now.toLocaleDateString("ru-RU", { weekday: "long", day: "numeric", month: "long" });
 
-  const tabContent = state.tab === "tasks" ? tasksTabHTML() : financeTabHTML();
+  const tabContent = state.tab === "tasks" ? tasksTabHTML() : state.tab === "finance" ? financeTabHTML() : notesTabHTML();
   const editingTask = state.editingTaskId ? state.tasks.find(t => t.id === state.editingTaskId) : null;
 
   app.innerHTML = `
@@ -587,6 +677,7 @@ function render() {
     <nav class="tabbar"><div class="inner">
       <button data-action="set-tab" data-tab="tasks">${ICONS.tabTasks(state.tab==='tasks')}<span style="color:${state.tab==='tasks'?'#E8A33D':'#57616B'}">Задачи</span></button>
       <button data-action="set-tab" data-tab="finance">${ICONS.tabFinance(state.tab==='finance')}<span style="color:${state.tab==='finance'?'#E8A33D':'#57616B'}">Финансы</span></button>
+      <button data-action="set-tab" data-tab="notes">${ICONS.tabNotes(state.tab==='notes')}<span style="color:${state.tab==='notes'?'#E8A33D':'#57616B'}">Заметки</span></button>
     </div></nav>
     ${editingTask ? taskEditModalHTML(editingTask) : ""}
   `;
@@ -692,6 +783,44 @@ document.addEventListener("click", (e) => {
     state.finance[section] = state.finance[section].filter(r => r.id !== id);
     persistFinance(); render();
   }
+
+  else if (action === "set-notes-view") { state.notesView = el.dataset.view; render(); }
+  else if (action === "note-prev-day") { state.noteDate = addDaysStr(state.noteDate, -1); render(); }
+  else if (action === "note-next-day") { state.noteDate = addDaysStr(state.noteDate, 1); render(); }
+  else if (action === "note-today") { state.noteDate = todayKey(); render(); }
+  else if (action === "open-note-date") { state.noteDate = el.dataset.date; state.notesView = "write"; render(); }
+  else if (action === "clear-note") {
+    delete state.notes[el.dataset.date];
+    persistNotes(); render();
+  }
+});
+
+document.addEventListener("input", (e) => {
+  const el = e.target;
+  if (el.id === "note-textarea") {
+    const dateStr = state.noteDate;
+    const val = el.value;
+    if (!state.notes[dateStr]) state.notes[dateStr] = { text: "", updatedAt: null };
+    state.notes[dateStr].text = val;
+    const footer = document.getElementById("note-footer-info");
+    if (footer) footer.textContent = `${noteWordCount(val)} слов · сохранение...`;
+    clearTimeout(noteSaveTimer);
+    noteSaveTimer = setTimeout(() => {
+      if (!val.trim()) { delete state.notes[dateStr]; }
+      else { state.notes[dateStr].updatedAt = Date.now(); }
+      persistNotes();
+      const footer2 = document.getElementById("note-footer-info");
+      if (footer2) {
+        const label = val.trim() ? `Сохранено в ${new Date().toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" })}` : "Ещё не сохранено";
+        footer2.textContent = `${noteWordCount(val)} слов · ${label}`;
+      }
+    }, 500);
+  }
+  else if (el.id === "note-search-input") {
+    state.noteSearch = el.value;
+    const container = document.getElementById("note-archive-results");
+    if (container) container.innerHTML = noteArchiveResultsHTML();
+  }
 });
 
 document.addEventListener("change", (e) => {
@@ -700,6 +829,10 @@ document.addEventListener("change", (e) => {
     const { section, id, field } = el.dataset;
     state.finance[section] = state.finance[section].map(r => r.id === id ? { ...r, [field]: el.value } : r);
     persistFinance();
+  }
+  else if (el.id === "note-date-picker") {
+    state.noteDate = el.value || todayKey();
+    render();
   }
 });
 
