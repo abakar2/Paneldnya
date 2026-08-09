@@ -134,8 +134,8 @@
 
   nav.tabbar { position: fixed; bottom: 0; left: 0; right: 0; background: #1B1F23; border-top: 1px solid #262C31; display: flex; justify-content: center; padding-bottom: env(safe-area-inset-bottom, 0px); }
   nav.tabbar .inner { display: flex; max-width: 480px; width: 100%; }
-  nav.tabbar button { flex: 1; background: none; border: none; padding: 12px 4px 10px; display: flex; flex-direction: column; align-items: center; gap: 3px; }
-  nav.tabbar button span { font-size: 10px; }
+  nav.tabbar button { flex: 1; background: none; border: none; padding: 10px 2px 9px; display: flex; flex-direction: column; align-items: center; gap: 2px; }
+  nav.tabbar button span { font-size: 9px; }
 </style>
 </head>
 <body>
@@ -160,6 +160,9 @@ const ICONS = {
   snow: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#5B8FE0" stroke-width="2"><path d="M12 2v20M4.9 6l14.2 12M19.1 6L4.9 18M2 12h20"/></svg>',
   snowMuted: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#8B95A1" stroke-width="2"><path d="M12 2v20M4.9 6l14.2 12M19.1 6L4.9 18M2 12h20"/></svg>',
   fire: '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#E8A33D" stroke-width="2"><path d="M8.5 14.5A2.5 2.5 0 0011 17a2.5 2.5 0 002.5-2.5c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 11-14 0c0-1.153.433-2.294 1-3 1.226 1.24 1.234 2.65 1 3.5"/></svg>',
+  trophyMuted: '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#8B95A1" stroke-width="2" style="vertical-align:middle;"><path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 01-10 0V4z"/><path d="M7 5H4a1 1 0 00-1 1v1a4 4 0 004 4M17 5h3a1 1 0 011 1v1a4 4 0 01-4 4"/></svg>',
+  tabGoals: (a)=>`<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="${a?'#E8A33D':'#57616B'}" stroke-width="2"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.3" fill="${a?'#E8A33D':'#57616B'}"/></svg>`,
+  tabStats: (a)=>`<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="${a?'#E8A33D':'#57616B'}" stroke-width="2"><path d="M18 20V10M12 20V4M6 20v-6"/></svg>`,
 };
 
 const LIST_STYLE = {
@@ -215,6 +218,55 @@ const ASSET_TYPES = {
 };
 const PAYMENT_REPEAT_LABEL = { once: "Разовый", weekly: "Еженедельно", monthly: "Ежемесячно", yearly: "Ежегодно" };
 
+const XP_PER_LEVEL = 10;
+function levelInfo(totalCompletions) {
+  const level = Math.floor(totalCompletions / XP_PER_LEVEL) + 1;
+  const inLevel = totalCompletions % XP_PER_LEVEL;
+  return { level, inLevel, needed: XP_PER_LEVEL, pct: Math.round((inLevel / XP_PER_LEVEL) * 100) };
+}
+
+const ACHIEVEMENTS = [
+  { id: "first", label: "Первый шаг", desc: "Выполните первую задачу", check: (s) => s.gamify.totalCompletions >= 1 },
+  { id: "ten", label: "Разгон", desc: "10 выполненных задач", check: (s) => s.gamify.totalCompletions >= 10 },
+  { id: "fifty", label: "Половина сотни", desc: "50 выполненных задач", check: (s) => s.gamify.totalCompletions >= 50 },
+  { id: "hundred", label: "Сотня", desc: "100 выполненных задач", check: (s) => s.gamify.totalCompletions >= 100 },
+  { id: "streak3", label: "Разогрев", desc: "Серия из 3 дней подряд", check: (s) => s.tasks.some(t => taskStreak(t) >= 3) },
+  { id: "streak7", label: "Неделя в ритме", desc: "Серия из 7 дней подряд", check: (s) => s.tasks.some(t => taskStreak(t) >= 7) },
+  { id: "streak30", label: "Железная воля", desc: "Серия из 30 дней подряд", check: (s) => s.tasks.some(t => taskStreak(t) >= 30) },
+  { id: "goal1", label: "Целеустремлённость", desc: "Создайте первую цель", check: (s) => s.goals.length >= 1 },
+  { id: "goaldone", label: "Достигнуто", desc: "Завершите цель", check: (s) => s.goals.some(g => g.done) },
+  { id: "finance", label: "Учёт ведётся", desc: "Добавьте первую финансовую операцию", check: (s) => s.transactions.length >= 1 },
+  { id: "note", label: "Летопись", desc: "Сделайте первую запись в дневнике", check: (s) => Object.keys(s.notes).length >= 1 },
+  { id: "allareas", label: "Полная картина", desc: "Создайте 3 области жизни", check: (s) => s.areas.length >= 3 },
+];
+function checkAchievements() {
+  let changed = false;
+  ACHIEVEMENTS.forEach(a => {
+    if (!state.gamify.unlocked.includes(a.id) && a.check(state)) {
+      state.gamify.unlocked.push(a.id);
+      changed = true;
+    }
+  });
+  if (changed) persistGamify();
+}
+
+const HABIT_FACTS = [
+  "В среднем привычке требуется от 18 до 254 дней, чтобы закрепиться — не расстраивайтесь, если не с первого раза.",
+  "Пропуск одного дня почти не влияет на формирование привычки — важна не идеальность, а возврат на следующий день.",
+  "Привычки легче закрепляются, если привязать их к уже существующему действию («после намаза — 5 минут чтения»).",
+  "Маленькие, но ежедневные действия формируют привычку быстрее, чем редкие и масштабные усилия.",
+  "Видимый прогресс (стрики, отметки) сам по себе усиливает мотивацию продолжать.",
+  "Окружение влияет на привычки сильнее силы воли — уберите то, что мешает, а не боритесь с собой.",
+  "Привычка формируется не через мотивацию, а через повторение в одном и том же контексте.",
+  "Пропущенный день не обнуляет прогресс мозга — нейронные связи от повторений уже сформированы.",
+  "Заменить плохую привычку легче, чем просто отказаться от неё — ищите замену действию, а не пустоту.",
+  "Утренние привычки закрепляются быстрее вечерних — меньше конкурирующих решений в начале дня.",
+];
+function todayFact() {
+  const dayOfYear = Math.floor((new Date(todayKey()) - new Date(todayKey().slice(0,4) + "-01-01")) / 86400000);
+  return HABIT_FACTS[dayOfYear % HABIT_FACTS.length];
+}
+
 function addInterval(dateStr, repeat) {
   const d = new Date(dateStr + "T00:00:00");
   if (repeat === "weekly") d.setDate(d.getDate() + 7);
@@ -253,10 +305,14 @@ let state = {
   notesView: "write", // write | archive
   noteDate: todayKey(),
   noteSearch: "",
+  statsRange: "week", // week | month | year
   tasks: loadKey("pd-tasks", DEFAULT_TASKS),
   transactions: loadKey("pd-transactions", []),
   finance: loadKey("pd-finance", { credits: [], investments: [], accounts: [], debts: [], payments: [] }),
   notes: loadKey("pd-notes", {}),
+  areas: loadKey("pd-areas", []),
+  goals: loadKey("pd-goals", []),
+  gamify: loadKey("pd-gamify", { totalCompletions: 0, unlocked: [] }),
 };
 if (!state.finance.debts) state.finance.debts = [];
 if (!state.finance.payments) state.finance.payments = [];
@@ -268,6 +324,9 @@ function persistTasks() { saveKey("pd-tasks", state.tasks); syncNativeNotificati
 function persistTx() { saveKey("pd-transactions", state.transactions); }
 function persistFinance() { saveKey("pd-finance", state.finance); syncNativeNotifications(); }
 function persistNotes() { saveKey("pd-notes", state.notes); }
+function persistAreas() { saveKey("pd-areas", state.areas); }
+function persistGoals() { saveKey("pd-goals", state.goals); }
+function persistGamify() { saveKey("pd-gamify", state.gamify); }
 
 function isDoneOn(task, dateStr) {
   return task.repeat === "daily" ? task.doneDates.includes(dateStr) : !!task.done;
@@ -386,6 +445,11 @@ function tasksTabHTML() {
       <button data-action="set-tasks-view" data-view="calendar" class="${state.tasksView === 'calendar' ? 'active' : ''}">Календарь</button>
     </div>`;
 
+  const factCard = `<div class="fin-section" style="background:#1B1F23;border:1px solid #262C31;border-radius:8px;padding:10px 12px;margin-bottom:14px;">
+    <div style="font-size:11px;color:#E8A33D;font-weight:600;margin-bottom:3px;">💡 Факт дня</div>
+    <div style="font-size:12px;color:#8B95A1;line-height:1.4;">${todayFact()}</div>
+  </div>`;
+
   if (state.tasksView === "calendar") {
     return viewToggle + calendarBlockHTML();
   }
@@ -401,7 +465,7 @@ function tasksTabHTML() {
     ? addTaskFormHTML(state.filter === "today" ? todayKey() : "")
     : `<button class="toggle-add-btn" data-action="toggle-add-task">${ICONS.plusMuted} Добавить задачу</button>`;
 
-  return `${viewToggle}${chipRow}<div>${items}</div>${addBlock}`;
+  return `${viewToggle}${state.filter === 'today' ? factCard : ''}${chipRow}<div>${items}</div>${addBlock}`;
 }
 
 function calendarBlockHTML() {
@@ -485,6 +549,13 @@ function taskEditModalHTML(t) {
         <option value="none" ${t.repeat==='none'?'selected':''}>Не повторять</option>
         <option value="daily" ${t.repeat==='daily'?'selected':''}>Каждый день</option>
       </select>
+
+      ${state.goals.length > 0 ? `
+      <div class="modal-field-label">Связать с целью</div>
+      <select class="field" id="edit-task-goal">
+        <option value="">Без цели</option>
+        ${state.goals.map(g => `<option value="${g.id}" ${t.goalId===g.id?'selected':''}>${escapeHtml(g.title)}</option>`).join("")}
+      </select>` : ""}
 
       <div class="modal-actions">
         <button class="btn-cancel" data-action="close-edit-task">Отмена</button>
@@ -694,6 +765,79 @@ function financeTabHTML() {
   return viewToggle + (state.financeView === "ops" ? financeOpsHTML() : financeLedgerHTML());
 }
 
+// ---------- Goals (areas -> goals -> linked tasks) ----------
+const AREA_COLORS = ["#E8A33D", "#5B8FE0", "#3ECF8E", "#E27C9E", "#9B8CD9", "#E2574C", "#4FC3D9", "#C9A94E"];
+
+function goalsTabHTML() {
+  const li = levelInfo(state.gamify.totalCompletions);
+  const unlockedCount = state.gamify.unlocked.length;
+
+  const levelCard = `
+    <div class="summary-grid" style="grid-template-columns:1fr;">
+      <div>
+        <div class="row-between" style="margin-bottom:6px;">
+          <span class="stat-label">Уровень ${li.level}</span>
+          <span class="mono muted" style="font-size:11px;">${li.inLevel}/${li.needed} XP · ${ICONS.trophyMuted} ${unlockedCount}/${ACHIEVEMENTS.length}</span>
+        </div>
+        <div class="cat-bar-track"><div class="cat-bar-fill" style="width:${li.pct}%;background:#E8A33D;"></div></div>
+      </div>
+    </div>`;
+
+  if (state.areas.length === 0) {
+    return levelCard + `
+      <div class="empty-state" style="padding:32px 16px;">
+        Пока нет областей жизни.<br/>Создайте первую, чтобы начать ставить цели.
+      </div>
+      <button class="btn-add btn-add-labeled" data-action="add-area" style="width:100%;justify-content:center;">${ICONS.plus}<span>Создать область жизни</span></button>
+    `;
+  }
+
+  const areasHTML = state.areas.map(area => {
+    const goals = state.goals.filter(g => g.areaId === area.id);
+    const goalsHTML = goals.length === 0
+      ? `<div class="empty-state" style="padding:12px 4px;">Нет целей в этой области.</div>`
+      : goals.map(g => {
+          const linkedTasks = state.tasks.filter(t => t.goalId === g.id);
+          const linkedDone = linkedTasks.filter(t => t.repeat === "daily" ? isDoneOn(t, todayKey()) : t.done).length;
+          const progress = linkedTasks.length > 0 ? Math.round((linkedDone / linkedTasks.length) * 100) : (g.done ? 100 : 0);
+          return `
+          <div class="task" style="border-left:3px solid ${area.color};opacity:${g.done ? 0.5 : 1};">
+            <button class="icon-btn check" data-action="toggle-goal" data-id="${g.id}">${g.done ? ICONS.check(area.color) : ICONS.circle}</button>
+            <div style="flex:1;min-width:0;">
+              <div class="task-label" style="text-decoration:${g.done ? 'line-through' : 'none'};">${escapeHtml(g.title)}</div>
+              <div class="task-meta">
+                ${linkedTasks.length > 0 ? `<span class="task-time">${linkedDone}/${linkedTasks.length} задач</span>` : ""}
+                ${g.targetDate ? `<span class="task-time">до ${fmtDateShort(g.targetDate)}</span>` : ""}
+              </div>
+              ${linkedTasks.length > 0 ? `<div class="cat-bar-track" style="margin-top:6px;"><div class="cat-bar-fill" style="width:${progress}%;background:${area.color};"></div></div>` : ""}
+            </div>
+            <button class="icon-btn" data-action="remove-goal" data-id="${g.id}">${ICONS.trash}</button>
+          </div>`;
+        }).join("");
+
+    return `
+      <div class="fin-section">
+        <div class="fin-title">
+          <span style="width:10px;height:10px;border-radius:50%;background:${area.color};display:inline-block;"></span>
+          <h3>${escapeHtml(area.name)}</h3>
+          <button class="icon-btn" data-action="remove-area" data-id="${area.id}" style="margin-left:auto;">${ICONS.trash}</button>
+        </div>
+        ${goalsHTML}
+        <div class="add-row">
+          <input class="field" type="text" id="new-goal-title-${area.id}" placeholder="Новая цель..." style="flex:2;min-width:120px;" />
+          <input class="field" type="date" id="new-goal-date-${area.id}" style="flex:1;min-width:110px;" />
+          <button class="btn-add" data-action="add-goal" data-area="${area.id}">${ICONS.plus}</button>
+        </div>
+      </div>`;
+  }).join("");
+
+  return `
+    ${levelCard}
+    ${areasHTML}
+    <button class="toggle-add-btn" data-action="add-area">${ICONS.plusMuted} Новая область жизни</button>
+  `;
+}
+
 // ---------- Notebook (daily journal) ----------
 function fmtDateFull(dateStr) {
   const d = new Date(dateStr + "T00:00:00");
@@ -764,6 +908,124 @@ function noteArchiveHTML() {
   `;
 }
 
+// ---------- Statistics ----------
+function statsRangeDates(range) {
+  const today = todayKey();
+  if (range === "week") {
+    return Array.from({ length: 7 }, (_, i) => addDaysStr(today, i - 6));
+  } else if (range === "month") {
+    return Array.from({ length: 30 }, (_, i) => addDaysStr(today, i - 29));
+  } else {
+    return Array.from({ length: 12 }, (_, i) => {
+      const d = new Date();
+      d.setMonth(d.getMonth() - (11 - i));
+      return d.toISOString().slice(0, 7);
+    });
+  }
+}
+
+function dailyCompletionPct(dateStr) {
+  const dailyTasks = state.tasks.filter(t => t.repeat === "daily");
+  if (dailyTasks.length === 0) return 0;
+  const done = dailyTasks.filter(t => isDoneOn(t, dateStr) || isFrozenOn(t, dateStr)).length;
+  return Math.round((done / dailyTasks.length) * 100);
+}
+
+function monthCompletionPct(monthStr) {
+  const [y, m] = monthStr.split("-").map(Number);
+  const daysInMonth = new Date(y, m, 0).getDate();
+  let sum = 0, count = 0;
+  for (let d = 1; d <= daysInMonth; d++) {
+    const ds = `${monthStr}-${String(d).padStart(2, "0")}`;
+    if (ds > todayKey()) continue;
+    sum += dailyCompletionPct(ds); count++;
+  }
+  return count > 0 ? Math.round(sum / count) : 0;
+}
+
+function statsTabHTML() {
+  const range = state.statsRange;
+  const rangeToggle = `
+    <div class="segmented">
+      <button data-action="set-stats-range" data-range="week" class="${range === 'week' ? 'active' : ''}">Неделя</button>
+      <button data-action="set-stats-range" data-range="month" class="${range === 'month' ? 'active' : ''}">Месяц</button>
+      <button data-action="set-stats-range" data-range="year" class="${range === 'year' ? 'active' : ''}">Год</button>
+    </div>`;
+
+  const dates = statsRangeDates(range);
+  let bars, labels, avg;
+  if (range === "year") {
+    const values = dates.map(m => monthCompletionPct(m));
+    avg = values.length ? Math.round(values.reduce((a,b)=>a+b,0) / values.length) : 0;
+    labels = dates.map(m => new Date(m + "-01").toLocaleDateString("ru-RU", { month: "short" }));
+    bars = values;
+  } else {
+    const values = dates.map(d => dailyCompletionPct(d));
+    avg = values.length ? Math.round(values.reduce((a,b)=>a+b,0) / values.length) : 0;
+    labels = dates.map(d => range === "week" ? new Date(d+"T00:00:00").toLocaleDateString("ru-RU",{weekday:"short"}) : new Date(d+"T00:00:00").getDate().toString());
+    bars = values;
+  }
+
+  const chartHTML = `
+    <div style="display:flex;align-items:flex-end;gap:${range==='month'?'2px':'6px'};height:120px;padding:8px 0;">
+      ${bars.map((v, i) => `
+        <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%;gap:4px;">
+          <div style="width:100%;max-width:${range==='month'?'8px':'22px'};height:${Math.max(2, v)}%;background:${v >= 70 ? '#3ECF8E' : v >= 40 ? '#E8A33D' : '#57616B'};border-radius:3px;"></div>
+          ${range !== 'month' ? `<span style="font-size:9px;color:#57616B;">${labels[i]}</span>` : ''}
+        </div>`).join("")}
+    </div>`;
+
+  const bestStreak = Math.max(0, ...state.tasks.filter(t => t.repeat === "daily").map(t => taskStreak(t)));
+  const totalCompletions = state.gamify.totalCompletions;
+
+  const dailyTasks = state.tasks.filter(t => t.repeat === "daily");
+  const topHabits = [...dailyTasks].map(t => {
+    const relevantDates = range === "year" ? statsRangeDates("month") : dates;
+    const done = relevantDates.filter(d => isDoneOn(t, d) || isFrozenOn(t, d)).length;
+    return { t, pct: relevantDates.length ? Math.round((done / relevantDates.length) * 100) : 0 };
+  }).sort((a, b) => b.pct - a.pct).slice(0, 5);
+
+  return `
+    ${rangeToggle}
+    <div class="fin-section">
+      <div class="row-between" style="margin-bottom:2px;">
+        <h3 style="font-family:'Space Grotesk',sans-serif;font-size:14px;margin:0;">Выполнено привычек</h3>
+        <span class="mono" style="font-size:18px;font-weight:600;color:#E8A33D;">${avg}%</span>
+      </div>
+      ${chartHTML}
+    </div>
+
+    <div class="summary-grid">
+      <div><div class="stat-label">Выполнено всего</div><div class="stat-value mono">${totalCompletions}</div></div>
+      <div><div class="stat-label">Лучшая серия</div><div class="stat-value mono" style="color:#E8A33D;">${bestStreak} ${ICONS.fire}</div></div>
+    </div>
+
+    <div class="fin-section">
+      <div class="fin-title"><h3>Топ привычек</h3></div>
+      ${topHabits.length === 0 ? `<div class="empty-state">Пока нет ежедневных привычек.</div>` : topHabits.map(({t, pct}) => `
+        <div class="cat-bar-item">
+          <div class="cat-bar-head"><span>${escapeHtml(t.title)}</span><span class="mono muted">${pct}%</span></div>
+          <div class="cat-bar-track"><div class="cat-bar-fill" style="width:${pct}%;background:${(LIST_STYLE[t.list]||LIST_STYLE.admin).color};"></div></div>
+        </div>`).join("")}
+    </div>
+
+    <div class="fin-section">
+      <div class="fin-title">${ICONS.trophyMuted}<h3>Достижения (${state.gamify.unlocked.length}/${ACHIEVEMENTS.length})</h3></div>
+      <div style="display:flex;flex-wrap:wrap;gap:8px;">
+        ${ACHIEVEMENTS.map(a => {
+          const unlocked = state.gamify.unlocked.includes(a.id);
+          return `<div title="${a.desc}" style="width:64px;text-align:center;opacity:${unlocked?1:0.35};">
+            <div style="width:44px;height:44px;border-radius:50%;background:${unlocked?'#E8A33D22':'#1B1F23'};border:1px solid ${unlocked?'#E8A33D':'#262C31'};display:flex;align-items:center;justify-content:center;margin:0 auto;">
+              ${unlocked ? ICONS.fire : ICONS.snowMuted}
+            </div>
+            <div style="font-size:9px;color:#8B95A1;margin-top:4px;line-height:1.2;">${a.label}</div>
+          </div>`;
+        }).join("")}
+      </div>
+    </div>
+  `;
+}
+
 function escapeHtml(str) {
   const div = document.createElement("div");
   div.textContent = str == null ? "" : str;
@@ -776,7 +1038,11 @@ function render() {
   const now = new Date();
   const dateLabel = now.toLocaleDateString("ru-RU", { weekday: "long", day: "numeric", month: "long" });
 
-  const tabContent = state.tab === "tasks" ? tasksTabHTML() : state.tab === "finance" ? financeTabHTML() : notesTabHTML();
+  const tabContent = state.tab === "tasks" ? tasksTabHTML()
+    : state.tab === "goals" ? goalsTabHTML()
+    : state.tab === "finance" ? financeTabHTML()
+    : state.tab === "stats" ? statsTabHTML()
+    : notesTabHTML();
   const editingTask = state.editingTaskId ? state.tasks.find(t => t.id === state.editingTaskId) : null;
 
   app.innerHTML = `
@@ -787,7 +1053,9 @@ function render() {
     <main>${tabContent}</main>
     <nav class="tabbar"><div class="inner">
       <button data-action="set-tab" data-tab="tasks">${ICONS.tabTasks(state.tab==='tasks')}<span style="color:${state.tab==='tasks'?'#E8A33D':'#57616B'}">Задачи</span></button>
+      <button data-action="set-tab" data-tab="goals">${ICONS.tabGoals(state.tab==='goals')}<span style="color:${state.tab==='goals'?'#E8A33D':'#57616B'}">Цели</span></button>
       <button data-action="set-tab" data-tab="finance">${ICONS.tabFinance(state.tab==='finance')}<span style="color:${state.tab==='finance'?'#E8A33D':'#57616B'}">Финансы</span></button>
+      <button data-action="set-tab" data-tab="stats">${ICONS.tabStats(state.tab==='stats')}<span style="color:${state.tab==='stats'?'#E8A33D':'#57616B'}">Статистика</span></button>
       <button data-action="set-tab" data-tab="notes">${ICONS.tabNotes(state.tab==='notes')}<span style="color:${state.tab==='notes'?'#E8A33D':'#57616B'}">Заметки</span></button>
     </div></nav>
     ${editingTask ? taskEditModalHTML(editingTask) : ""}
@@ -804,6 +1072,7 @@ document.addEventListener("click", (e) => {
   else if (action === "set-tasks-view") { state.tasksView = el.dataset.view; state.showAddTask = false; render(); }
   else if (action === "set-filter") { state.filter = el.dataset.filter; state.showAddTask = false; render(); }
   else if (action === "set-finance-view") { state.financeView = el.dataset.view; render(); }
+  else if (action === "set-stats-range") { state.statsRange = el.dataset.range; render(); }
   else if (action === "set-tx-type") { state.txType = el.dataset.type; render(); }
   else if (action === "toggle-add-task") { state.showAddTask = !state.showAddTask; render(); }
 
@@ -811,11 +1080,16 @@ document.addEventListener("click", (e) => {
     const id = el.dataset.id, ctxDate = el.dataset.date;
     const t = state.tasks.find(x => x.id === id);
     if (!t) return;
+    let becameDone = false;
     if (t.repeat === "daily") {
-      t.doneDates = t.doneDates.includes(ctxDate) ? t.doneDates.filter(d => d !== ctxDate) : [...t.doneDates, ctxDate];
+      const wasDone = t.doneDates.includes(ctxDate);
+      t.doneDates = wasDone ? t.doneDates.filter(d => d !== ctxDate) : [...t.doneDates, ctxDate];
+      becameDone = !wasDone;
     } else {
+      becameDone = !t.done;
       t.done = !t.done;
     }
+    if (becameDone) { state.gamify.totalCompletions++; persistGamify(); checkAchievements(); }
     persistTasks(); render();
   }
   else if (action === "remove-task") {
@@ -858,6 +1132,8 @@ document.addEventListener("click", (e) => {
     t.list = document.getElementById("edit-task-list").value;
     t.priority = Number(document.getElementById("edit-task-priority").value);
     t.repeat = repeat;
+    const goalSelect = document.getElementById("edit-task-goal");
+    if (goalSelect) t.goalId = goalSelect.value || null;
     persistTasks();
     state.editingTaskId = null;
     render();
@@ -870,7 +1146,7 @@ document.addEventListener("click", (e) => {
     const list = document.getElementById("new-task-list").value;
     const priority = Number(document.getElementById("new-task-priority").value);
     const repeat = document.getElementById("new-task-repeat").value;
-    state.tasks.push({ id: "c" + Date.now(), title, list, priority, date: repeat === "daily" ? null : date, time, repeat, done: false, doneDates: [], frozenDates: [] });
+    state.tasks.push({ id: "c" + Date.now(), title, list, priority, date: repeat === "daily" ? null : date, time, repeat, done: false, doneDates: [], frozenDates: [], goalId: null });
     persistTasks();
     state.showAddTask = false;
     render();
@@ -887,7 +1163,7 @@ document.addEventListener("click", (e) => {
     const date = document.getElementById("new-tx-date").value || todayKey();
     const note = document.getElementById("new-tx-note").value.trim();
     state.transactions.push({ id: "tx" + Date.now(), type: state.txType, amount, category, date, note });
-    persistTx(); render();
+    persistTx(); checkAchievements(); render();
   }
   else if (action === "remove-tx") {
     state.transactions = state.transactions.filter(t => t.id !== el.dataset.id);
@@ -903,6 +1179,39 @@ document.addEventListener("click", (e) => {
     const { section, id } = el.dataset;
     state.finance[section] = state.finance[section].filter(r => r.id !== id);
     persistFinance(); render();
+  }
+
+  else if (action === "add-area") {
+    const name = prompt("Название области жизни (например: Здоровье, Семья, Финансы):");
+    if (!name || !name.trim()) return;
+    const color = AREA_COLORS[state.areas.length % AREA_COLORS.length];
+    state.areas.push({ id: "area" + Date.now(), name: name.trim(), color });
+    persistAreas(); checkAchievements(); render();
+  }
+  else if (action === "remove-area") {
+    const id = el.dataset.id;
+    state.goals = state.goals.filter(g => g.areaId !== id);
+    state.areas = state.areas.filter(a => a.id !== id);
+    persistAreas(); persistGoals(); render();
+  }
+  else if (action === "add-goal") {
+    const areaId = el.dataset.area;
+    const titleInput = document.getElementById("new-goal-title-" + areaId);
+    const dateInput = document.getElementById("new-goal-date-" + areaId);
+    const title = titleInput.value.trim();
+    if (!title) return;
+    state.goals.push({ id: "goal" + Date.now(), areaId, title, targetDate: dateInput.value || null, done: false });
+    persistGoals(); checkAchievements(); render();
+  }
+  else if (action === "toggle-goal") {
+    const g = state.goals.find(x => x.id === el.dataset.id);
+    if (!g) return;
+    g.done = !g.done;
+    persistGoals(); if (g.done) checkAchievements(); render();
+  }
+  else if (action === "remove-goal") {
+    state.goals = state.goals.filter(g => g.id !== el.dataset.id);
+    persistGoals(); render();
   }
 
   else if (action === "set-notes-view") { state.notesView = el.dataset.view; render(); }
@@ -930,6 +1239,7 @@ document.addEventListener("input", (e) => {
       if (!val.trim()) { delete state.notes[dateStr]; }
       else { state.notes[dateStr].updatedAt = Date.now(); }
       persistNotes();
+      checkAchievements();
       const footer2 = document.getElementById("note-footer-info");
       if (footer2) {
         const label = val.trim() ? `Сохранено в ${new Date().toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" })}` : "Ещё не сохранено";
