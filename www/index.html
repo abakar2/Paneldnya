@@ -142,6 +142,15 @@
 <div id="app"></div>
 
 <script>
+window.addEventListener('error', function(e) {
+  var app = document.getElementById('app');
+  if (app) app.innerHTML = '<div style="padding:20px;color:#E2574C;font-family:monospace;font-size:12px;white-space:pre-wrap;">ОШИБКА JS:\n' + (e.message || '') + '\nфайл: ' + (e.filename || '') + '\nстрока: ' + (e.lineno || '') + ':' + (e.colno || '') + '</div>';
+});
+window.addEventListener('unhandledrejection', function(e) {
+  var app = document.getElementById('app');
+  var msg = (e.reason && e.reason.message) ? e.reason.message : String(e.reason);
+  if (app) app.innerHTML = '<div style="padding:20px;color:#E2574C;font-family:monospace;font-size:12px;white-space:pre-wrap;">ОШИБКА (promise):\n' + msg + '</div>';
+});
 const ICONS = {
   check: (c)=>`<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="${c}" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M8 12l3 3 5-6"/></svg>`,
   circle: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#57616B" stroke-width="2"><circle cx="12" cy="12" r="9"/></svg>',
@@ -1347,8 +1356,13 @@ async function syncNativeNotifications() {
   } catch (e) { console.error("notif sync error", e); }
 }
 
-render();
-syncNativeNotifications();
+try {
+  render();
+  syncNativeNotifications();
+} catch (e) {
+  var app = document.getElementById('app');
+  if (app) app.innerHTML = '<div style="padding:20px;color:#E2574C;font-family:monospace;font-size:12px;white-space:pre-wrap;">ОШИБКА при запуске:\n' + e.message + '\n\n' + (e.stack || '') + '</div>';
+}
 </script>
 </body>
 </html>
