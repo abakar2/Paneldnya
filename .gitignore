@@ -5,3 +5,4 @@ android/.gradle/
 android/local.properties
 android/captures/
 *.log
+android/app/debug.keystore
